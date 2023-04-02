@@ -2,6 +2,12 @@ import bpy
 import mathutils
 import random
 
+"""
+todo: put all cubes in the same instance
+merge geometry
+
+"""
+
 class Vec3:
     def __init__(self, x, y, z):
         self.x = x
@@ -16,14 +22,6 @@ class Vec3:
 
     def scale(self, scalar):
         return Vec3(self.x * scalar, self.y * scalar, self.z * scalar)
-
-
-N = Vec3(0, 1, 0)
-S = Vec3(0, -1, 0)
-E = Vec3(1, 0, 0)
-W = Vec3(-1, 0, 0)
-U = Vec3(0, 0, 1)
-D = Vec3(0, 0, -1)
 
 
 class Stack:
@@ -55,20 +53,27 @@ class Cell:
         
 
 class SquareGrid:
-    def __init__(self, gridSize: int, cellSize: float, spacing: float):
+    def __init__(self, gridSize: Vec3, cellSize: float):
         self.gridSize = gridSize
         self.cellSize = cellSize
-        self.spacing = spacing
+        self.spacing = cellSize*2
+        # fencepost
+        self.offset = Vec3(
+            gridSize.x*cellSize + (self.spacing)*gridSize.x,
+            gridSize.y*cellSize + (self.spacing)*gridSize.y,
+            -2
+        ).scale(-0.5)
 
         self.xRow = []
-        for x in range(gridSize):
+        for x in range(gridSize.x):
             yRow = []
-            for y in range(gridSize):
+            for y in range(gridSize.y):
                 zRow = []
-                for z in range(gridSize):
+                for z in range(gridSize.z):
                     zRow.append(Cell(x, y, z))
                 yRow.append(zRow)
             self.xRow.append(yRow)
+
 
     def get(self, x, y, z):
         # print(str(x) + " " + str(y) + " " + str(z))
@@ -84,19 +89,18 @@ class SquareGrid:
 
     
     def get_neighbors(self, cell: Cell):
-        # TODO: return a list of tuples with neighbors and directions
         neighbors = []
         if cell.x > 0:
             neighbors.append(self.get(cell.x-1, cell.y, cell.z))
-        if cell.x < self.gridSize-1:
+        if cell.x < self.gridSize.x-1:
             neighbors.append(self.get(cell.x+1, cell.y, cell.z))
         if cell.y > 0:
             neighbors.append(self.get(cell.x, cell.y-1, cell.z))
-        if cell.y < self.gridSize-1:
+        if cell.y < self.gridSize.y-1:
             neighbors.append(self.get(cell.x, cell.y+1, cell.z))
         if cell.z > 0:
             neighbors.append(self.get(cell.x, cell.y, cell.z-1))
-        if (cell.z < self.gridSize-1):
+        if (cell.z < self.gridSize.z-1):
             neighbors.append(self.get(cell.x, cell.y, cell.z+1))
         return neighbors
 
@@ -105,7 +109,7 @@ class SquareGrid:
         print("solving")
         stack = Stack()
         # pick initial cell, mark as visited and push to the stack
-        currentCell = self.get(random.randint(0, self.gridSize-1), random.randint(0, self.gridSize-1), random.randint(0, self.gridSize-1))
+        currentCell = self.get(random.randint(0, self.gridSize.x-1), random.randint(0, self.gridSize.y-1), random.randint(0, self.gridSize.z-1))
         currentCell.visited = True
         stack.push(currentCell)
         while not stack.empty():
@@ -122,7 +126,9 @@ class SquareGrid:
     
 
     def add_cube(self, x, y, z):
-        bpy.ops.mesh.primitive_cube_add(location=(x*self.spacing, y*self.spacing, z*self.spacing))
+        pos = Vec3(x*self.spacing, y*self.spacing, z*self.spacing).add(self.offset)
+
+        bpy.ops.mesh.primitive_cube_add(location=(pos.x, pos.y, pos.z))
         bpy.ops.transform.resize(value=(self.cellSize, self.cellSize, self.cellSize))
 
     
@@ -141,6 +147,6 @@ class SquareGrid:
                         pass
         
             
-grid: SquareGrid = SquareGrid(5, 1, 2)
+grid: SquareGrid = SquareGrid(Vec3(4, 4, 7), 1)
 grid.solve()
 grid.make()
